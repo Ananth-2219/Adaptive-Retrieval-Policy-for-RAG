@@ -1,0 +1,16 @@
+# Core RAG stack — see CLAUDE.md for why each of these was chosen
+ollama                  # Python client for local Ollama server
+sentence-transformers   # embeddings + cross-encoder reranker
+chromadb                # local vector store
+rank_bm25                # BM25 keyword retrieval
+scikit-learn            # query intent classifier
+ragas                   # evaluation harness
+datasets                # HuggingFace datasets loader for HotpotQA/SQuAD
+
+# Support
+numpy
+pandas
+pydantic                # data contract schemas
+pyyaml                  # config loading
+tqdm
+pytest                  # unit tests

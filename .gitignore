@@ -1,0 +1,33 @@
+# Data — never commit raw/processed datasets or the vector store
+data/raw/*
+data/processed/*
+data/vector_store/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/vector_store/.gitkeep
+
+# Logs (metrics ARE committed — see results/metrics)
+results/logs/*
+!results/logs/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Model weights / caches
+*.bin
+*.gguf
+*.pt
+*.safetensors
+.cache/
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
+
+# Env
+.env
