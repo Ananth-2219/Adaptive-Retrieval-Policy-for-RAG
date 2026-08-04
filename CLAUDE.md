@@ -104,34 +104,41 @@ If either workstream needs to change this contract, update it here first, then i
 pipeline's output shape silently.
 
 ## Folder structure
-
-```
-adaptive-rag/
-├── CLAUDE.md                  # this file
-├── README.md
-├── requirements.txt
-├── .gitignore
-├── data/
-│   ├── raw/                   # downloaded datasets — gitignored
-│   ├── processed/             # cleaned/chunked data — gitignored
-│   └── vector_store/          # ChromaDB persistence dir — gitignored
-├── src/
-│   ├── retrieval/             # vector_search.py, bm25_search.py, hybrid_rrf.py, multihop.py
-│   ├── reranker/              # cross-encoder reranking
-│   ├── classifier/            # query intent classifier (train + inference)
-│   ├── router/                # routes query -> retrieval pipeline based on classifier output
-│   ├── generation/            # Ollama LLM call + prompt templates
-│   ├── eval/                  # RAGAS harness, metric scripts
-│   └── utils/                 # schemas.py (data contract), config loading, logging
-├── configs/                   # yaml/json configs — model names, paths, hyperparams
-├── scripts/                   # one-off runnable scripts (download data, build index, run eval)
-├── tests/                     # unit tests, one file per src/ module
-├── notebooks/                 # exploratory only — nothing here should be required to run the pipeline
-├── results/
-│   ├── logs/                  # run logs — gitignored
-│   └── metrics/               # eval output CSVs/JSON — committed, this is what goes in the report
-└── docs/                      # architecture notes, viva prep notes, decisions
-```
+ 
+ ```
+ adaptive-rag/
+ ├── CLAUDE.md                  # this file — persistent project context
+ ├── README.md
+ ├── requirements.txt
+ ├── .gitignore
+ ├── data/
+ │   ├── raw/                   # downloaded datasets — gitignored
+ │   ├── processed/             # cleaned/chunked data — gitignored
+ │   └── vector_store/          # ChromaDB persistence dir — gitignored
+ ├── src/
+ │   ├── retrieval/             # All retrieval pipelines
+ │   │   ├── vector_search.py   # ChromaDB + sentence-transformers vector search
+ │   │   ├── bm25_search.py     # rank_bm25 keyword retrieval
+ │   │   ├── hybrid_rrf.py      # Reciprocal Rank Fusion of vector + BM25
+ │   │   ├── multi_hop.py       # Multi-hop retrieval (LLM query decomposition)
+ │   │   └── reranker.py        # Cross-encoder reranking
+ │   ├── reranker/              # (shared — reranker.py also in retrieval/)
+ │   ├── classifier/            # query intent classifier (train + inference) — Week 2
+ │   ├── router/                # routes query -> retrieval pipeline based on classifier output — Week 2
+ │   ├── generation/            # Ollama LLM call + prompt templates
+ │   ├── eval/                  # RAGAS harness, metric scripts — Week 3
+ │   ├── tests/                 # Unit tests for all src/ modules
+ │   └── utils/                 # schemas.py (data contract), config loading, logging
+ ├── configs/                   # yaml/json configs — model names, paths, hyperparams
+ ├── scripts/                   # one-off runnable scripts (download data, build index, run eval, demo)
+ │   └── demo_mvp.py            # MVP demo script — runs all pipelines
+ ├── tests/                     # unit tests, one file per src/ module
+ ├── notebooks/                 # exploratory only — nothing here should be required to run the pipeline
+ ├── results/
+ │   ├── logs/                  # run logs — gitignored
+ │   └── metrics/               # eval output CSVs/JSON — committed, this is what goes in the report
+ └── docs/                      # architecture notes, viva prep notes, decisions
+ ```
 
 ## Git rules
 
@@ -146,30 +153,60 @@ adaptive-rag/
   say so explicitly, since it affects the other person's code.
 
 ## Current phase — Week 1
-
-Goal: get all four retrieval pipelines and the reranker working **independently**,
-each callable as a plain function that takes a query string and returns the
-contract shape above. Do not wire up the classifier/router yet — that's Week 2.
-Do not worry about evaluation metrics yet — that's Week 3. Use a small hand-picked
-set of ~10-20 test queries against a small chunked subset of one dataset (SQuAD is
-simpler to start with than HotpotQA) to sanity-check each pipeline manually before
-moving to the next one.
-
-Order suggested: vector search first (simplest, proves the ChromaDB + embeddings
-path end-to-end) → BM25 (no embeddings needed, fast to add) → hybrid RRF (combines
-the two above, so do it third) → multi-hop (most complex, needs the LLM in the loop
-for query decomposition, do it last) → reranker (bolts onto any of the above).
+ 
+ Goal: get all four retrieval pipelines and the reranker working **independently**,
+ each callable as a plain function that takes a query string and returns the
+ contract shape above. Do not wire up the classifier/router yet — that's Week 2.
+ Do not worry about evaluation metrics yet — that's Week 3. Use a small hand-picked
+ set of ~10-20 test queries against a small chunked subset of one dataset (SQuAD is
+ simpler to start with than HotpotQA) to sanity-check each pipeline manually before
+ moving to the next one.
+ 
+ Order suggested: vector search first (simplest, proves the ChromaDB + embeddings
+ path end-to-end) → BM25 (no embeddings needed, fast to add) → hybrid RRF (combines
+ the two above, so do it third) → multi-hop (most complex, needs the LLM in the loop
+ for query decomposition, do it last) → reranker (bolts onto any of the above).
+ 
+### Week 1 Status — COMPLETE
+ 
+ All four retrieval pipelines and the reranker are implemented and tested.
+ A demo script (`scripts/demo_mvp.py`) ties everything together for the MVP.
+ 
+#### Implemented files:
+ | File | Description |
+ |---|---|
+ | `src/utils/schemas.py` | Pydantic data contract models (`RetrievalChunk`, `RouterResult`) |
+ | `src/retrieval/vector_search.py` | ChromaDB + sentence-transformers vector search pipeline |
+ | `src/retrieval/bm25_search.py` | rank_bm25 keyword retrieval pipeline |
+ | `src/retrieval/hybrid_rrf.py` | Reciprocal Rank Fusion combining vector + BM25 |
+ | `src/retrieval/multi_hop.py` | Multi-hop retrieval (LLM query decomposition — mock for MVP) |
+ | `src/retrieval/reranker.py` | Cross-encoder reranking pipeline |
+ | `src/tests/test_retrieval_pipelines.py` | Unit tests for all retrieval pipelines |
+ | `scripts/demo_mvp.py` | MVP demo script — runs all pipelines with a single command |
+ 
+#### Next steps:
+ - Week 2: Wire up classifier + router (`src/classifier/`, `src/router/`)
+ - Week 3: Evaluation harness (`src/eval/`) with RAGAS metrics
 
 ## Conventions
-
-- Python 3.10+, type hints on function signatures, docstrings on every public
-  function (this project will be read by a professor who doesn't have the codebase
-  memorized).
-- No notebooks for anything that needs to run repeatably — notebooks are for
-  one-off exploration only.
-- Config values (model names, chunk sizes, top-k, dataset paths) live in
-  `configs/`, not hardcoded in `src/`.
-- Before starting a task that touches more than one file or more than one
-  component (e.g. anything that touches both `src/retrieval/` and
-  `src/utils/schemas.py`), use Plan Mode and confirm the plan with the user before
-  writing code.
+ 
+ - Python 3.10+, type hints on function signatures, docstrings on every public
+   function (this project will be read by a professor who doesn't have the codebase
+   memorized).
+ - No notebooks for anything that needs to run repeatably — notebooks are for
+   one-off exploration only.
+ - Config values (model names, chunk sizes, top-k, dataset paths) live in
+   `configs/`, not hardcoded in `src/`.
+ - Before starting a task that touches more than one file or more than one
+   component (e.g. anything that touches both `src/retrieval/` and
+   `src/utils/schemas.py`), use Plan Mode and confirm the plan with the user before
+   writing code.
+ - All retrieval pipelines must return `RetrievalChunk` objects matching the
+   data contract in `src/utils/schemas.py`. Do not invent custom return shapes.
+ - The reranker (`src/retrieval/reranker.py`) accepts a list of `RetrievalChunk`
+   objects and returns them re-ranked by cross-encoder score.
+ - The demo script (`scripts/demo_mvp.py`) is the entry point for the MVP
+   demonstration — run it with `python scripts/demo_mvp.py`.
+ - Tests are in `src/tests/test_retrieval_pipelines.py` and validate that
+   each pipeline returns the correct number of results with the right
+   `source_method` and `score` types.
