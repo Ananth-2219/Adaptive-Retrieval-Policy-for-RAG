@@ -23,6 +23,8 @@ venv/
 *.pt
 *.safetensors
 .cache/
+# Generated classifier model
+configs/classifier_model.joblib
 
 # OS/editor
 .DS_Store

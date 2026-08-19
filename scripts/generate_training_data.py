@@ -1,101 +1,113 @@
-import csv
-import random
-import os
+import csv,os,re,collections,random
 
 templates = {
     "factual": [
-        "What is the capital of {country}?",
-        "Who discovered {phenomenon}?",
-        "When did {event} happen?"
+        "What is the capital of {c}?",
+        "Who discovered {p}?",
+        "When did {e} happen?",
+        "What is the {a} {n} of {person}?",
+        "Which {r} leads {o}?"
     ],
     "comparative": [
-        "Is {X} bigger than {Y}?",
-        "Which is more popular: {X} or {Y}?",
-        "Compare the GDP of {X} and {Y}."
+        "Is {x} bigger than {y}?",
+        "Which is more popular: {x} or {y}?",
+        "How does the {m} of {x} compare to that of {y}?",
+        "Is {x} considered more {a} than {y} in {f}?",
+        "Compare the {attr} of {x} and {y}."
     ],
     "definitional": [
-        "What does {term} mean?",
-        "Define {concept}.",
-        "What is the definition of {phenomenon}?"
+        "What does {t} mean?",
+        "Define {t}.",
+        "What is the definition of {p}?",
+        "What is the significance of {t} in {f}?",
+        "How would you define {t} in everyday language?"
     ],
     "multihop": [
-        "If {person1} knows {person2}, and {person2} knows {person3}, does {person1} know {person3}?",
-        "Given that {event1} led to {event2}, and {event2} caused {event3}, what is the relationship between {event1} and {event3}?",
-        "If {cityA} is north of {cityB}, and {cityB} is north of {cityC}, where is {cityA} relative to {cityC}?"
+        "What {attr} did the {r} of {e} have before {e}?",
+        "In what year was the {cr} of {w} born?",
+        "How old was {person} when they {ach}?",
+        "If {e1} led to {e2} and {e2} caused {e3}, what is the relationship between {e1} and {e3}?",
+        "Given that {ent1} is {rel} to {ent2} and {ent2} is {rel} to {ent3}, what about {ent1} relative to {ent3}?"
     ]
 }
 
 entities = {
-    "country": ["France", "Japan", "Brazil", "Canada", "India", "Australia", "Germany", "Nigeria", "Egypt", "Mexico", "Italy", "Spain", "South Korea", "Indonesia", "Turkey", "Netherlands", "Saudi Arabia", "Sweden", "Poland", "Belgium"],
-    "phenomenon": ["gravity", "photosynthesis", "refraction", "evaporation", "magnetism", "radioactivity", "diffraction", "convection", "nuclear fission", "elasticity", "tornado", "hurricane", "earthquake", "volcano", "lightning", "aurora", "tsunami", "blizzard", "drought", "flood"],
-    "event": ["World War II", "the Moon landing", "the fall of the Berlin Wall", "the invention of the telephone", "the signing of the Magna Carta", "the Industrial Revolution", "the discovery of penicillin", "the launch of Sputnik", "the Wright brothers' first flight", "the Panama Canal opening", "the fall of the Roman Empire", "the French Revolution", "the American Civil War", "the invention of the printing press", "the discovery of electricity", "the construction of the Great Wall", "the founding of the United Nations", "the invention of the internet", "the Human Genome Project", "the first Olympic Games"],
-    "X": ["France", "Japan", "Brazil", "Canada", "India"],
-    "Y": ["Germany", "Australia", "China", "Russia", "South Africa"],
-    "term": ["photosynthesis", "blockchain", "artifact", "equilibrium", "algorithm", "entropy", "catalyst", "neuron", "genome", "isotope", "osmosis", "fermentation", "transpiration", "respiration", "germination", "pollination", "adaptation", "mutation", "homeostasis", "symbiosis"],
-    "concept": ["democracy", "relativity", "ecosystem", "evolution", "quantum mechanics", "climate change", "artificial intelligence", "human rights", "supply and demand", "natural selection", "globalization", "urbanization", "industrialization", "modernization", "westernization", "democratization", "privatization", "liberalization", "centralization", "decentralization"],
-    "person1": ["Alice", "Bob", "Charlie", "Diana", "Eve"],
-    "person2": ["Alice", "Bob", "Charlie", "Diana", "Eve"],
-    "person3": ["Alice", "Bob", "Charlie", "Diana", "Eve"],
-    "event1": ["the Industrial Revolution", "the invention of the steam engine", "the discovery of electricity", "the Wright brothers' flight", "the launch of Sputnik"],
-    "event2": ["the rise of factories", "the spread of railways", "the telegraph", "the jet age", "the satellite era"],
-    "event3": ["urbanization", "globalization", "the information age", "space exploration", "AI development"],
-    "cityA": ["Tokyo", "Paris", "New York", "Sydney", "Mumbai"],
-    "cityB": ["Tokyo", "Paris", "New York", "Sydney", "Mumbai"],
-    "cityC": ["Tokyo", "Paris", "New York", "Sydney", "Mumbai"]
+    "c": ["France","Japan","Brazil","Canada","India","Australia"],
+    "p": ["gravity","photosynthesis","radioactivity","diffraction","evaporation","condensation"],
+    "e": ["World War II","the Moon landing","the fall of the Berlin Wall","the invention of the telephone","the signing of the Magna Carta","the discovery of penicillin"],
+    "a": ["major","significant","key","primary","central","essential"],
+    "n": ["discovery","innovation","breakthrough","finding","result","event"],
+    "person": ["Alice","Bob","Charlie","Diana","Eve","Frank"],
+    "r": ["scientist","inventor","author","philosopher","leader","engineer"],
+    "o": ["UN","NASA","World Health Organization","International Monetary Fund","European Commission","Red Cross"],
+    "x": ["France","Germany","Japan","Brazil","Canada","Australia"],
+    "y": ["Australia","China","Russia","South Africa","India","Italy"],
+    "m": ["GDP","population","area","life expectancy","literacy rate","employment rate"],
+    "f": ["biology","physics","economics","history","literature","psychology"],
+    "t": ["algorithm","photosynthesis","blockchain","entropy","catalyst","neuron"],
+    "attr": ["major achievement","key innovation","significant breakthrough","important discovery","critical development","transformative change"],
+    "cr": ["Einstein","Da Vinci","Newton","Curie","Galileo","Heisenberg"],
+    "w": ["Hamlet","The Theory of Relativity","On the Origin of Species","The Raven","The Great Gatsby","Moby Dick"],
+    "ach": ["discovered penicillin","published the theory of relativity","invented the telephone","painted the Mona Lisa","decoded the DNA structure","created the first vaccine"],
+    "e1": ["the Industrial Revolution","the invention of the telephone","World War II","the rise of factories","the discovery of penicillin","the launch of Sputnik"],
+    "e2": ["the rise of factories","the discovery of penicillin","the fall of the Berlin Wall","the development of modern medicine","the invention of the internet","the Human Genome Project"],
+    "e3": ["urbanization","the development of modern medicine","the spread of democracy","the invention of the internet","the Human Genome Project","the discovery of electricity"],
+    "rel": ["greater than","leads to","part of","causes","results in","underlies"],
+    "ent1": ["France","Germany","Japan","Brazil","Canada","Australia"],
+    "ent2": ["Australia","China","Russia","South Africa","India","Italy"],
+    "ent3": ["Italy","Spain","Portugal","Greece","Turkey","Brazil"]
 }
 
-def generate_examples():
-    random.seed(42)
-    rows = []
-    for intent, templist in templates.items():
-        generated = set()
-        attempts = 0
-        while len(generated) < 40 and attempts < 200:
+def gen_intent(intent, needed=40):
+    tmplist = templates[intent]
+    examples = set()
+    attempts = 0
+    while len(examples) < needed and attempts < 5000:
+        tmpl = random.choice(tmplist)
+        ph = re.findall(r'\{(\w+)\}', tmpl)
+        vals = {}
+        for p in ph:
+            vals[p] = random.choice(entities[p]) if p in entities else "X"
+        try:
+            sent = tmpl.format(**vals)
+        except:
             attempts += 1
-            tpl = random.choice(templist)
-            import re
-            places = re.findall(r'\{(.*?)\}', tpl)
-            vals = {}
-            for p in places:
-                if p in entities:
-                    vals[p] = random.choice(entities[p])
-                else:
-                    vals[p] = "X"
-            try:
-                sent = tpl.format(**vals)
-            except KeyError:
-                continue
-            if sent not in generated:
-                generated.add(sent)
-                rows.append({"intent": intent, "query": sent})
-        # If still not enough, fill with deterministic generation
-        if len(generated) < 40:
-            for tpl in templist:
-                import re
-                places = re.findall(r'\{(.*?)\}', tpl)
-                # create all combos? simple: just fill with first entity each
-                vals = {p: entities[p][0] if p in entities else "X" for p in places}
+            continue
+        if sent not in examples:
+            examples.add(sent)
+        attempts += 1
+    if len(examples) < needed:
+        i = 0
+        while len(examples) < needed:
+            for tmpl in tmplist:
+                ph = re.findall(r'\{(\w+)\}', tmpl)
+                vals = {p: entities[p][i % len(entities[p])] if p in entities else "X" for p in ph}
                 try:
-                    sent = tpl.format(**vals)
-                except KeyError:
+                    sent = tmpl.format(**vals)
+                except:
                     continue
-                if sent not in generated:
-                    generated.add(sent)
-                    rows.append({"intent": intent, "query": sent})
-                if len(generated) >= 40:
-                    break
-    return rows
+                if sent not in examples:
+                    examples.add(sent)
+                    if len(examples) >= needed:
+                        break
+            i += 1
+    return list(examples)[:needed]
 
-def main():
-    out_dir = os.path.join("data", "processed")
-    os.makedirs(out_dir, exist_ok=True)
-    out_path = os.path.join(out_dir, "intent_training_data.csv")
-    rows = generate_examples()
-    with open(out_path, 'w', newline='', encoding='utf-8') as f:
-        writer = csv.DictWriter(f, fieldnames=["intent", "query"])
-        writer.writeheader()
-        writer.writerows(rows)
-    print(f"Generated {len(rows)} examples saved to {out_path}")
+rows = []
+for intent in ["factual","comparative","definitional","multihop"]:
+    ex = gen_intent(intent, 40)
+    for s in ex:
+        rows.append({"query": s, "intent": intent})
+    print(f"{intent}: generated {len(ex)} examples")
 
-if __name__ == "__main__":
-    main()
+out_dir = "data/processed"
+os.makedirs(out_dir, exist_ok=True)
+out_path = os.path.join(out_dir, "intent_training_data.csv")
+with open(out_path, "w", newline="", encoding="utf-8") as f:
+    writer = csv.DictWriter(f, fieldnames=["query","intent"])
+    writer.writeheader()
+    writer.writerows(rows)
+print("Total rows:", len(rows))
+cnt = collections.Counter(r["intent"] for r in rows)
+for intent in ["factual","comparative","definitional","multihop"]:
+    print(f"Final {intent} count: {cnt.get(intent,0)}")
